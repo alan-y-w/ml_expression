@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from sklearn import preprocessing
 
 def load_data(valid_count, train_count, filename):
-    persons = {};
+
 
     mat = sio.loadmat(filename)
     labels = mat['tr_labels'] #(2925, 1) examples
@@ -18,18 +18,12 @@ def load_data(valid_count, train_count, filename):
 #     ShowMeans(images[0].reshape(1, 1024).T)
 #     ShowMeans(preprocessing.scale(np.float32(images[0].reshape(1, 1024).T)))
 
+    persons = create_persons(labels, images, ids)
 
-    # collect data for each individual
-    for i in xrange(labels.shape[0]):
-        p_id = ids[i][0]
-        if (not persons.has_key(p_id)):
-            persons[p_id] = Person(p_id)
-        persons[p_id].data.append(images[i])
-        persons[p_id].expressions.append(labels[i][0])
 
     # split into training set and validation set
     # 743 persons
-    valid_targets, valid_ids, valid_data, valid_keys = create_sub_set(persons, valid_count)
+    valid_targets, valid_ids, valid_data, valid_keys = create_sub_set_rand(persons, valid_count)
 
     # remove the persons used for validation set
     for key in valid_keys:
@@ -37,17 +31,40 @@ def load_data(valid_count, train_count, filename):
 #     print valid_targets.shape, valid_ids.shape, valid_data.shape
 
     # get training set
-    train_targets, train_ids, train_data, train_keys = create_sub_set(persons, train_count)
+    train_targets, train_ids, train_data, train_keys = create_sub_set_rand(persons, train_count)
 
     return valid_targets, valid_ids, valid_data, train_targets, train_ids, train_data
 #     print train_targets.shape, train_ids.shape, train_data.shape
 
 """
-Take the persons dictionary and takes out samples for the set
+
+"""
+def create_persons(labels, images, ids):
+    persons = {};
+    # collect data for each individual
+    for i in xrange(labels.shape[0]):
+        p_id = ids[i][0]
+        if (not persons.has_key(p_id)):
+            persons[p_id] = Person(p_id)
+        persons[p_id].data.append(images[i])
+        persons[p_id].expressions.append(labels[i][0])
+    return persons
+
+"""
+Take the persons dictionary and takes out first "N" samples for the set
 Also return a list of keys of the persons used for set
+
+Note that the number of samples returned may be less than count, as the data about
+the same person must stay in the same set. There is not splitting
+
+input:
+    persons: dictionary of persons, by id
+    count: MAXIMUM number of samples in the returned set
+
+output:
+    subset of data and keys used to extract the data
 """
 def create_sub_set(persons, count):
-
     targets = np.zeros((count))
     ids = np.zeros((count))
     data = np.zeros((count, 32, 32))
@@ -97,6 +114,75 @@ def create_sub_set(persons, count):
     data = preprocessing.scale(np.float32(data))
     return targets.reshape(1, targets.shape[0]), ids.reshape(1, ids.shape[0]), data, keys
 
+"""
+Take the persons dictionary and takes out random "N" samples for the set
+Also return a list of keys of the persons used for set
+
+Note that the number of samples returned may be less than count, as the data about
+the same person must stay in the same set. There is not splitting
+
+input:
+    persons: dictionary of persons, by id
+    count: MAXIMUM number of samples in the returned set
+
+output:
+    subset of data and keys used to extract the data
+"""
+def create_sub_set_rand(persons, count):
+    targets = np.zeros((count))
+    ids = np.zeros((count))
+    data = np.zeros((count, 32, 32))
+    keys = []
+    counter = 0
+
+    # construct keys
+    shuffle_keys = persons.keys()
+    np.random.shuffle(shuffle_keys)
+
+    for key in shuffle_keys:
+        for i in range(len(persons[key].expressions)):
+            if (counter < count):
+                targets[counter] = persons[key].expressions[i]
+                ids[counter] = persons[key].id
+
+                data[counter] = persons[key].data[i]
+
+                counter += 1
+            else:
+                if (i == 0):
+                    keys.append(key)
+
+                    n, h, w = data.shape
+                    data = data.reshape(n, (h*w)).T
+                    data = preprocessing.scale(np.float32(data))
+                    return targets.reshape(1, targets.shape[0]), ids.reshape(1, ids.shape[0]), data, keys
+                else:
+                    while (i > 0):
+                        targets = np.delete(targets, -1)
+                        ids = np.delete(ids,-1)
+                        data = np.delete(data, -1, axis=0)
+                        i -= 1
+#                     keys.append(key)
+
+                    n, h, w = data.shape
+                    data = data.reshape(n, (h*w)).T
+                    data = preprocessing.scale(np.float32(data))
+                    return targets.reshape(1, targets.shape[0]), ids.reshape(1, ids.shape[0]), data, keys
+        keys.append(key)
+    # in this case all persons finished
+    # in case count >> the number of samples, remove zeros in the return arrays
+    while(counter < count - 1):
+        targets = np.delete(targets, -1)
+        ids = np.delete(ids, -1)
+        data = np.delete(data, -1, axis=0)
+        counter += 1
+
+    n, h, w = data.shape
+    data = data.reshape(n, (h*w)).T
+    data = preprocessing.scale(np.float32(data))
+    return targets.reshape(1, targets.shape[0]), ids.reshape(1, ids.shape[0]), data, keys
+
+
 def ShowMeans(means):
     """Show the cluster centers as images."""
     plt.figure(1)
@@ -108,8 +194,9 @@ def ShowMeans(means):
     raw_input('Press Enter.')
 
 """
-image_array.shape = (number of images, 32, 32)
-return.shape = (32x32, number of images)
+Reshape the image as array
+* image_array.shape = (number of images, h, w)
+* return.shape = (hxw, number of images)
 """
 def image_reshape(image_array):
     return image_array.reshape(image_array.shape[0], image_array.shape[1] * image_array.shape[2]).T
@@ -118,6 +205,8 @@ def image_reshape(image_array):
 input:
     predictions: (1, #samples) array of predictions
     targets: (1, #samples) array of targets
+output:
+    percentage error
 """
 def percent_error(predictions, targets):
     error_count = np.count_nonzero(predictions - targets)
