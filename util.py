@@ -113,6 +113,16 @@ return.shape = (32x32, number of images)
 """
 def image_reshape(image_array):
     return image_array.reshape(image_array.shape[0], image_array.shape[1] * image_array.shape[2]).T
+
+"""
+input:
+    predictions: (1, #samples) array of predictions
+    targets: (1, #samples) array of targets
+"""
+def percent_error(predictions, targets):
+    error_count = np.count_nonzero(predictions - targets)
+    return float(error_count)/predictions.shape[1]
+
 #code to visualize the image
 # def ShowImage():
 
