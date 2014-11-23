@@ -123,15 +123,14 @@ def main():
   train_size = 2830
   te_labels, valid_ids, te_image, \
   tr_labels, train_ids, tr_image = load_data(valid_size, train_size)
-  print te_labels.shape, valid_ids.shape, te_image.shape
-  print tr_labels.shape, train_ids.shape, tr_image.shape
-  
-  # Change this line to cange KNN.
-  K = 5
   tr_image, te_image = shape_image(tr_image, te_image)
   tr_image, te_image = normalize_image(tr_image, te_image)
-  predictions = run_knn(K, tr_image, tr_labels, te_image)
-  print validate_image(te_labels, predictions)
+
+  # Change this line to cange KNN.
+  KNN = [25,27,30,33,35]
+  for K in KNN:
+    predictions = run_knn(K, tr_image, tr_labels, te_image)
+    print validate_image(te_labels, predictions)
 
 if __name__ == '__main__':
   main()
