@@ -1,19 +1,22 @@
 import scipy.io as sio
 from defs import *
 import matplotlib.pyplot as plt
+from sklearn import preprocessing
 
-def load_data(valid_count, train_count):
+def load_data(valid_count, train_count, filename):
     persons = {};
 
-    mat = sio.loadmat('labeled_images.mat')
+    mat = sio.loadmat(filename)
     labels = mat['tr_labels'] #(2925, 1) examples
     #print labels
     images = mat['tr_images'].T #(32, 32, 2925)
     ids = mat['tr_identity'] #(2925, 1)
 
-    print images[0]
+#     print images[0]
 #     ShowMeans(images[0].reshape(1, 1024).T)
 
+#     ShowMeans(images[0].reshape(1, 1024).T)
+#     ShowMeans(preprocessing.scale(np.float32(images[0].reshape(1, 1024).T)))
 
 
     # collect data for each individual
@@ -40,8 +43,8 @@ def load_data(valid_count, train_count):
 #     print train_targets.shape, train_ids.shape, train_data.shape
 
 """
-Take the persons dictionary and takes out samples for the validation set
-Also return a list of keys of the persons used for validation set
+Take the persons dictionary and takes out samples for the set
+Also return a list of keys of the persons used for set
 """
 def create_sub_set(persons, count):
 
@@ -63,7 +66,11 @@ def create_sub_set(persons, count):
             else:
                 if (i == 0):
                     keys.append(key)
-                    return targets, ids, data, keys
+
+                    n, h, w = data.shape
+                    data = data.reshape(n, (h*w)).T
+                    data = preprocessing.scale(np.float32(data))
+                    return targets.reshape(1, targets.shape[0]), ids.reshape(1, ids.shape[0]), data, keys
                 else:
                     while (i > 0):
                         targets = np.delete(targets, -1)
@@ -71,7 +78,11 @@ def create_sub_set(persons, count):
                         data = np.delete(data, -1, axis=0)
                         i -= 1
 #                     keys.append(key)
-                    return targets, ids, data, keys
+
+                    n, h, w = data.shape
+                    data = data.reshape(n, (h*w)).T
+                    data = preprocessing.scale(np.float32(data))
+                    return targets.reshape(1, targets.shape[0]), ids.reshape(1, ids.shape[0]), data, keys
         keys.append(key)
     # in this case all persons finished
     # in case count >> the number of samples, remove zeros in the return arrays
@@ -80,7 +91,11 @@ def create_sub_set(persons, count):
         ids = np.delete(ids, -1)
         data = np.delete(data, -1, axis=0)
         counter += 1
-    return targets, ids, data, keys
+
+    n, h, w = data.shape
+    data = data.reshape(n, (h*w)).T
+    data = preprocessing.scale(np.float32(data))
+    return targets.reshape(1, targets.shape[0]), ids.reshape(1, ids.shape[0]), data, keys
 
 def ShowMeans(means):
     """Show the cluster centers as images."""
@@ -92,6 +107,12 @@ def ShowMeans(means):
     plt.draw()
     raw_input('Press Enter.')
 
+"""
+image_array.shape = (number of images, 32, 32)
+return.shape = (32x32, number of images)
+"""
+def image_reshape(image_array):
+    return image_array.reshape(image_array.shape[0], image_array.shape[1] * image_array.shape[2]).T
 #code to visualize the image
 # def ShowImage():
 
