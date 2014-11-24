@@ -2,6 +2,78 @@ import numpy as np
 from util import *
 from sklearn import svm
 from sklearn.decomposition import RandomizedPCA
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.cross_validation import cross_val_score
+
+""" WRAPPER FUNCTIONS """
+
+"""
+input:
+    data: (#samples, features)
+    targets: (#samples,)
+"""
+def wrapper_pca_svm(train_data, train_targets, test_data, test_targets, pca_count=80):
+    ###############################################################################
+    # PCA
+    n_components = pca_count
+#     n_components = 5
+    #pca.fit = shape (n_samples, n_features)
+    pca = RandomizedPCA(n_components=n_components, whiten=True).fit(train_data)
+
+    ###############################################################################
+    # SVM
+    # enabel probability estimate to use with adaboost
+    svm_clf = svm.SVC(probability=False)
+    # train_data.shape = (pixels, #samples)
+    # train_targets.shape = (1, #samples)
+
+    # transform data
+    train_data_pca = pca.transform(train_data)
+    valid_data_pca = pca.transform(test_data)
+    # reshape targets for fitting
+
+
+    # can also get probability score
+    svm_clf.fit(train_data_pca, train_targets)
+    valid_predictions = svm_clf.predict(valid_data_pca)
+    valid_predictions = valid_predictions.reshape(1, valid_predictions.shape[0])
+    return svm_clf, (1 - percent_error(valid_predictions, test_targets))
+
+"""
+input:
+    data: (#samples, features)
+    targets: (#samples,)
+"""
+def wrapper_random_forest(train_data, train_targets, test_data, test_targets, num_tree=200):
+    # random forest (works better without pca)
+    trees_clf = RandomForestClassifier(n_estimators=num_tree)
+    trees_clf = trees_clf.fit(train_data, train_targets)
+#     clf_trees = clf_trees.fit(train_data_pca, train_targets_reshaped)
+
+    # can also get probability score
+    valid_predictions = trees_clf.predict(test_data)
+#     valid_predictions = clf_trees.predict(valid_data_pca)
+
+    valid_predictions = valid_predictions.reshape(1, valid_predictions.shape[0])
+    return trees_clf, (1 - percent_error(valid_predictions, test_targets))
+
+"""
+input:
+    data: (#samples, features)
+    targets: (#samples,)
+"""
+def wrapper_adaboost(train_data, train_targets, test_data, test_targets, num_learner=50):
+    ada_clf = AdaBoostClassifier(n_estimators=num_learner)
+    ada_clf = ada_clf.fit(train_data, train_targets)
+#     scores = cross_val_score(ada_clf, valid_data_pca, valid_targets)
+#     scores.mean()
+
+    valid_predictions = ada_clf.predict(test_data)
+#     print valid_predictions.shape, valid_targets.shape
+#     valid_predictions.shape = (num_samples,)
+    return ada_clf, 1 - percent_error(valid_predictions.reshape(1, valid_predictions.shape[0]), test_targets)
+
 
 def main():
     # make sure valid_count + train_count
@@ -11,55 +83,36 @@ def main():
     filename = 'labeled_images.mat'
     valid_targets, valid_ids, valid_data, \
     train_targets, train_ids, train_data = load_data(valid_size, train_size, filename);
-    print valid_targets.shape, valid_ids.shape, valid_data.shape
-    print train_targets.shape, train_ids.shape, train_data.shape
+#     print valid_targets.shape, valid_ids.shape, valid_data.shape
+#     print train_targets.shape, train_ids.shape, train_data.shape
+
+    #reshape data and labels
+    train_data = train_data.T
+    valid_data = valid_data.T
+    train_targets = train_targets.T.reshape(train_targets.shape[1])
+    valid_targets = valid_targets.T.reshape(valid_targets.shape[1])
 
     ###############################################################################
-    # PCA
-    n_components = 80
-    #pca.fit = shape (n_samples, n_features)
-    pca = RandomizedPCA(n_components=n_components, whiten=True).fit(train_data.T)
+    # PCA-SVM
 
-#     # transform data
-#     X_train_pca = pca.transform(X_train)
-#     valid_data_pca = pca.transform(X_test)
-
+    # 80 components gives the best result with SVM
+    pca_count = 80
+    _, hit_rate = wrapper_pca_svm(train_data, train_targets, valid_data, valid_targets, pca_count)
+    print ("PCA-SVM hit rate: %.5f" % hit_rate)
 
     ###############################################################################
-    # SVM
-    clf = svm.SVC()
-    # train_data.shape = (pixels, #samples)
-    # train_targets.shape = (1, #samples)
+    # Random forest
+    # 200 trees give the best result
+#     num_tree = 200
+#     _, hit_rate = wrapper_random_forest(train_data, train_targets, valid_data, valid_targets, num_tree)
+#     print ("random forest hit rate: %.5f" % hit_rate)
 
-    # transform data
-    train_data_pca = pca.transform(train_data.T)
-    valid_data_pca = pca.transform(valid_data.T)
-    # reshape targets for fitting
-    train_targets_reshaped = train_targets.T.reshape(train_targets.shape[1])
-
-    clf.fit(train_data_pca, train_targets_reshaped)
-    valid_predictions = clf.predict(valid_data_pca)
-    valid_predictions = valid_predictions.reshape(1, valid_predictions.shape[0])
-
-    print (1 - percent_error(valid_predictions, valid_targets))
-
-
-    # (pixels as array, #num of samples)
-    # train target: (num_sampels, height, width)
-    # must reshape arr.reshape(arr.shape[0], arr.shape[1] * arr.shape[2]).T
-
-#     K = 256
-#     print train_data.reshape(train_data.shape[0], train_data.shape[1] * train_data.shape[2]).shape
-#     print train_data.reshape(train_data.shape[0], train_data.shape[1] * train_data.shape[2]).T.shape
-#     raw_input("Meh")
-#     v, mean, projX, w = pcaimg(\
-#                     train_data.reshape(train_data.shape[0], train_data.shape[1] * train_data.shape[2]).T, K)
-
-#     ShowEigenVectors(v.T[0:3].T)
-#     ShowMeans(mean)
-
-
-
+    ###############################################################################
+    # adaboost
+    num_learner = 20
+    _, hit_rate = wrapper_random_forest(train_data, train_targets, valid_data, valid_targets, num_learner)
+    print ("adaboosted pca-svm hit rate: %.5f" % hit_rate)
 
 if __name__ == '__main__':
-  main()
+    main()
+
