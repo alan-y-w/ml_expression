@@ -1,4 +1,5 @@
 import numpy as np
+import csv
 from util import *
 from sklearn import svm
 from sklearn.decomposition import RandomizedPCA
@@ -27,7 +28,7 @@ def wrapper_pca_svm(train_data, train_targets, test_data, test_targets, pca_coun
     svm_clf = svm.SVC(probability=False)
     # train_data.shape = (pixels, #samples)
     # train_targets.shape = (1, #samples)
-
+    print test_data.shape
     # transform data
     train_data_pca = pca.transform(train_data)
     valid_data_pca = pca.transform(test_data)
@@ -38,7 +39,7 @@ def wrapper_pca_svm(train_data, train_targets, test_data, test_targets, pca_coun
     svm_clf.fit(train_data_pca, train_targets)
     valid_predictions = svm_clf.predict(valid_data_pca)
     valid_predictions = valid_predictions.reshape(1, valid_predictions.shape[0])
-    return svm_clf, (1 - percent_error(valid_predictions, test_targets))
+    return svm_clf, pca, (1 - percent_error(valid_predictions, test_targets))
 
 """
 input:
@@ -50,7 +51,6 @@ def wrapper_random_forest(train_data, train_targets, test_data, test_targets, nu
     trees_clf = RandomForestClassifier(n_estimators=num_tree)
     trees_clf = trees_clf.fit(train_data, train_targets)
 #     clf_trees = clf_trees.fit(train_data_pca, train_targets_reshaped)
-
     # can also get probability score
     valid_predictions = trees_clf.predict(test_data)
 #     valid_predictions = clf_trees.predict(valid_data_pca)
@@ -75,6 +75,15 @@ def wrapper_adaboost(train_data, train_targets, test_data, test_targets, num_lea
     return ada_clf, 1 - percent_error(valid_predictions.reshape(1, valid_predictions.shape[0]), test_targets)
 
 
+def save_csv(result):
+    """save all the results into a csv file."""
+    with open('names.csv', 'wb') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=["Id", "Prediction"])
+        writer.writeheader()
+        for i in xrange(result.shape[1]):
+            writer.writerow({"Id":i, "Prediction":result[0][i]})
+
+
 def main():
     # make sure valid_count + train_count
     n = 2
@@ -97,9 +106,13 @@ def main():
 
     # 80 components gives the best result with SVM
     pca_count = 80
-    _, hit_rate = wrapper_pca_svm(train_data, train_targets, valid_data, valid_targets, pca_count)
+    model, pca, hit_rate = wrapper_pca_svm(train_data, train_targets, valid_data, valid_targets, pca_count)
     print ("PCA-SVM hit rate: %.5f" % hit_rate)
-
+    test_image = load_test('public_test_images').T
+    test_data_pca = pca.transform(test_image)
+    test_predictions = model.predict(test_data_pca)
+    test_predictions = test_predictions.reshape(1, test_predictions.shape[0])
+    save_csv(test_predictions)
     ###############################################################################
     # Random forest
     # 200 trees give the best result
