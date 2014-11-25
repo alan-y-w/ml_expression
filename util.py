@@ -32,9 +32,38 @@ def load_data(valid_count, train_count, filename):
 
     # get training set
     train_targets, train_ids, train_data, train_keys = create_sub_set_rand(persons, train_count)
-
     return valid_targets, valid_ids, valid_data, train_targets, train_ids, train_data
-#     print train_targets.shape, train_ids.shape, train_data.shape
+
+
+def load_test(filename):
+    mat = sio.loadmat(filename)
+    test_image = mat['public_test_images']
+    return preprocess_image(test_image)
+
+
+def preprocess_image(image_data):
+  """
+  Reshape and Normalize the image vector so that it is easier for computation.
+
+  Input:
+        image_data: h, w, M
+
+  Output:
+        image_data: h*w, M
+  """
+  # Reshape data vector to M x (hxw).
+  h, w, M = image_data.shape
+  image_data = image_data.reshape(h*w, M)
+
+  # Start to normalize_image
+  image_data = image_data - np.mean(image_data)
+
+  tr_std = np.std(image_data)
+  if tr_std != 0:
+    image_data = image_data / tr_std
+    return image_data
+  else:
+    print "Warning: There are no differences among input images."
 
 """
 
