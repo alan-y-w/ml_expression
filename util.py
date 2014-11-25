@@ -2,6 +2,7 @@ import scipy.io as sio
 from defs import *
 import matplotlib.pyplot as plt
 from sklearn import preprocessing
+import csv
 
 def load_data(valid_count, train_count, filename):
 
@@ -34,6 +35,31 @@ def load_data(valid_count, train_count, filename):
     train_targets, train_ids, train_data, train_keys = create_sub_set_rand(persons, train_count)
     return valid_targets, valid_ids, valid_data, train_targets, train_ids, train_data
 
+def load_data_test(filename):
+#     #['__version__', 'public_test_images', '__header__', '__globals__']
+#     #  test_data.shape = (32, 32, 418)
+    mat = sio.loadmat(filename)
+    #print labels
+    images = mat['public_test_images'].T #(32, 32, 2925)
+    ids =  np.arange(images.shape[0])
+    ids = ids.reshape((ids.shape[0],1))
+    labels = np.zeros(ids.shape)#(2925, 1) examples
+
+#     print images[0]
+#     ShowMeans(images[0].reshape(1, 1024).T)
+
+#     ShowMeans(images[0].reshape(1, 1024).T)
+#     ShowMeans(preprocessing.scale(np.float32(images[0].reshape(1, 1024).T)))
+
+    persons = create_persons(labels, images, ids)
+
+
+    # split into training set and validation set
+    # 743 persons
+    _, _, test_data, _ = create_sub_set(persons, labels.shape[0])
+
+    return test_data
+
 
 def load_test(filename):
     mat = sio.loadmat(filename)
@@ -54,16 +80,17 @@ def preprocess_image(image_data):
   # Reshape data vector to M x (hxw).
   h, w, M = image_data.shape
   image_data = image_data.reshape(h*w, M)
+  return preprocessing.scale(np.float32(image_data))
 
-  # Start to normalize_image
-  image_data = image_data - np.mean(image_data)
-
-  tr_std = np.std(image_data)
-  if tr_std != 0:
-    image_data = image_data / tr_std
-    return image_data
-  else:
-    print "Warning: There are no differences among input images."
+#   # Start to normalize_image
+#   image_data = image_data - np.mean(image_data)
+#
+#   tr_std = np.std(image_data)
+#   if tr_std != 0:
+#     image_data = image_data / tr_std
+#     return image_data
+#   else:
+#     print "Warning: There are no differences among input images."
 
 """
 
@@ -112,7 +139,6 @@ def create_sub_set(persons, count):
             else:
                 if (i == 0):
                     keys.append(key)
-
                     n, h, w = data.shape
                     data = data.reshape(n, (h*w)).T
                     data = preprocessing.scale(np.float32(data))
@@ -240,6 +266,22 @@ output:
 def percent_error(predictions, targets):
     error_count = np.count_nonzero(predictions - targets)
     return float(error_count)/predictions.shape[1]
+
+
+def save_csv(result, filename="submission.csv"):
+    """save all the results into a csv file."""
+    with open(filename, 'wb') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=["Id", "Prediction"])
+        writer.writeheader()
+        for i in xrange(result.shape[1]):
+            writer.writerow({"Id":i+1, "Prediction":int(result[0][i])})
+
+        i+=1
+        while (i < 1253):
+            i+=1
+            writer.writerow({"Id":i, "Prediction":0})
+
+
 
 #code to visualize the image
 # def ShowImage():

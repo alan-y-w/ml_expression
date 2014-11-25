@@ -1,5 +1,4 @@
 import numpy as np
-import csv
 from util import *
 from sklearn import svm
 from sklearn.decomposition import RandomizedPCA
@@ -28,7 +27,7 @@ def wrapper_pca_svm(train_data, train_targets, test_data, test_targets, pca_coun
     svm_clf = svm.SVC(probability=False)
     # train_data.shape = (pixels, #samples)
     # train_targets.shape = (1, #samples)
-    print test_data.shape
+#     print test_data.shape
     # transform data
     train_data_pca = pca.transform(train_data)
     valid_data_pca = pca.transform(test_data)
@@ -75,15 +74,6 @@ def wrapper_adaboost(train_data, train_targets, test_data, test_targets, num_lea
     return ada_clf, 1 - percent_error(valid_predictions.reshape(1, valid_predictions.shape[0]), test_targets)
 
 
-def save_csv(result):
-    """save all the results into a csv file."""
-    with open('names.csv', 'wb') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=["Id", "Prediction"])
-        writer.writeheader()
-        for i in xrange(result.shape[1]):
-            writer.writerow({"Id":i, "Prediction":result[0][i]})
-
-
 def main():
     # make sure valid_count + train_count
     n = 2
@@ -106,25 +96,35 @@ def main():
 
     # 80 components gives the best result with SVM
     pca_count = 80
-    model, pca, hit_rate = wrapper_pca_svm(train_data, train_targets, valid_data, valid_targets, pca_count)
+    svm, pca, hit_rate = wrapper_pca_svm(train_data, train_targets, valid_data, valid_targets, pca_count)
     print ("PCA-SVM hit rate: %.5f" % hit_rate)
-    test_image = load_test('public_test_images').T
-    test_data_pca = pca.transform(test_image)
-    test_predictions = model.predict(test_data_pca)
-    test_predictions = test_predictions.reshape(1, test_predictions.shape[0])
-    save_csv(test_predictions)
+
     ###############################################################################
     # Random forest
+
     # 200 trees give the best result
 #     num_tree = 200
 #     _, hit_rate = wrapper_random_forest(train_data, train_targets, valid_data, valid_targets, num_tree)
 #     print ("random forest hit rate: %.5f" % hit_rate)
 
     ###############################################################################
-    # adaboost
-    num_learner = 20
-    _, hit_rate = wrapper_random_forest(train_data, train_targets, valid_data, valid_targets, num_learner)
-    print ("adaboosted pca-svm hit rate: %.5f" % hit_rate)
+    # Adaboost
+
+#     num_learner = 20
+#     _, hit_rate = wrapper_random_forest(train_data, train_targets, valid_data, valid_targets, num_learner)
+#     print ("adaboosted pca-svm hit rate: %.5f" % hit_rate)
+
+    ###############################################################################
+    # Generate test result
+    # alan's code
+    test_images = load_data_test("public_test_images").T
+    print test_images.shape
+    test_data_pca = pca.transform(test_images)
+    test_predictions = svm.predict(test_data_pca)
+    test_predictions = test_predictions.reshape(1, test_predictions.shape[0])
+    save_csv(test_predictions)
+
+    print "Done writing CSV file!"
 
 if __name__ == '__main__':
     main()
