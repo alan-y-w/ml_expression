@@ -1,5 +1,6 @@
 import numpy as np
 from util import *
+from loaddata import *
 from sklearn import svm
 from sklearn.decomposition import RandomizedPCA
 from sklearn.ensemble import RandomForestClassifier
@@ -159,18 +160,18 @@ def main_single_classifier():
 #         (1 - percent_error(valid_predictions.reshape(1, valid_predictions.shape[0]), valid_targets))
     ###############################################################################
     #
-    n = [40, 60, 80, 100, 120, 140, 180, 200]
-    for num_tree in n:
-        print num_tree
-        trees_clf = RandomForestClassifier(n_estimators=num_tree)
-        trees_clf = trees_clf.fit(pca.transform(train_data), train_targets)
-    #     clf_trees = clf_trees.fit(train_data_pca, train_targets_reshaped)
-        # can also get probability score
-        valid_predictions = trees_clf.predict(pca.transform((valid_data)))
-    #     valid_predictions = clf_trees.predict(valid_data_pca)
-
-        valid_predictions = valid_predictions.reshape(1, valid_predictions.shape[0])
-        print (1 - percent_error(valid_predictions, valid_targets))
+#     n = [40, 60, 80, 100, 120, 140, 180, 200]
+#     for num_tree in n:
+#         print num_tree
+#         trees_clf = RandomForestClassifier(n_estimators=num_tree)
+#         trees_clf = trees_clf.fit(pca.transform(train_data), train_targets)
+#     #     clf_trees = clf_trees.fit(train_data_pca, train_targets_reshaped)
+#         # can also get probability score
+#         valid_predictions = trees_clf.predict(pca.transform((valid_data)))
+#     #     valid_predictions = clf_trees.predict(valid_data_pca)
+#
+#         valid_predictions = valid_predictions.reshape(1, valid_predictions.shape[0])
+#         print (1 - percent_error(valid_predictions, valid_targets))
 
     ###############################################################################
     # Generate test result
@@ -315,10 +316,10 @@ def main_bags_of_svm():
     valid_size = 96  + 96 * n
     train_size= 3000
 #
-    valid_size = 50
+    valid_size = 700
 #     train_size= 3000
 
-    num_svm = 10
+    num_svm = 3
     SVMs = [svm.SVC(probability=True)] * num_svm
     PCAs = [RandomizedPCA(n_components=80, whiten=True)] * num_svm
     weights = np.ones(num_svm)
