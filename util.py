@@ -175,9 +175,7 @@ def create_sub_set(persons, count):
             else:
                 if (i == 0):
                     keys.append(key)
-                    n, h, w = data.shape
-                    data = data.reshape(n, (h*w)).T
-                    data = preprocessing.scale(np.float32(data))
+                    data = preprocess_image(data)
                     return targets.reshape(1, targets.shape[0]), ids.reshape(1, ids.shape[0]), data, keys
                 else:
                     while (i > 0):
@@ -187,9 +185,7 @@ def create_sub_set(persons, count):
                         i -= 1
 #                     keys.append(key)
 
-                    n, h, w = data.shape
-                    data = data.reshape(n, (h*w)).T
-                    data = preprocessing.scale(np.float32(data))
+                    data = preprocess_image(data)
                     return targets.reshape(1, targets.shape[0]), ids.reshape(1, ids.shape[0]), data, keys
         keys.append(key)
     # in this case all persons finished
@@ -200,9 +196,7 @@ def create_sub_set(persons, count):
         data = np.delete(data, -1, axis=0)
         counter += 1
 
-    n, h, w = data.shape
-    data = data.reshape(n, (h*w)).T
-    data = preprocessing.scale(np.float32(data))
+    data = preprocess_image(data)
     return targets.reshape(1, targets.shape[0]), ids.reshape(1, ids.shape[0]), data, keys
 
 """
@@ -243,9 +237,7 @@ def create_sub_set_rand(persons, count):
                 if (i == 0):
                     keys.append(key)
 
-                    n, h, w = data.shape
-                    data = data.reshape(n, (h*w)).T
-                    data = preprocessing.scale(np.float32(data))
+                    data = preprocess_image(data)
                     return targets.reshape(1, targets.shape[0]), ids.reshape(1, ids.shape[0]), data, keys
                 else:
                     while (i > 0):
@@ -255,9 +247,7 @@ def create_sub_set_rand(persons, count):
                         i -= 1
 #                     keys.append(key)
 
-                    n, h, w = data.shape
-                    data = data.reshape(n, (h*w)).T
-                    data = preprocessing.scale(np.float32(data))
+                    data = preprocess_image(data)
                     return targets.reshape(1, targets.shape[0]), ids.reshape(1, ids.shape[0]), data, keys
         keys.append(key)
     # in this case all persons finished
@@ -268,9 +258,7 @@ def create_sub_set_rand(persons, count):
         data = np.delete(data, -1, axis=0)
         counter += 1
 
-    n, h, w = data.shape
-    data = data.reshape(n, (h*w)).T
-    data = preprocessing.scale(np.float32(data))
+    data = preprocess_image(data)
     return targets.reshape(1, targets.shape[0]), ids.reshape(1, ids.shape[0]), data, keys
     
 def preprocess_image(data):
