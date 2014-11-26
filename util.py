@@ -3,6 +3,29 @@ from defs import *
 import matplotlib.pyplot as plt
 from sklearn import preprocessing
 import csv
+from scipy import ndimage
+
+"""
+input:
+    data: (h * w, #samples)
+output:
+    data: (h * w, #samples)
+"""
+def edge_detect(data):
+    # pre-process valid_data
+    data = data.T
+
+    for i in xrange(data.shape[0]):
+        image = data[i]
+        image = image.reshape(32,32)
+        sx = ndimage.sobel(image, axis=0, mode='constant')
+        sy = ndimage.sobel(image, axis=1, mode='constant')
+        sob = np.hypot(sx, sy)
+#         ShowMeans(sob.reshape(1024,1))
+        data[i] = sob.reshape(data[i].shape)
+
+    data = preprocessing.scale(data)
+    return data.T
 
 def load_data(valid_count, train_count, filename):
 
@@ -25,6 +48,9 @@ def load_data(valid_count, train_count, filename):
     # split into training set and validation set
     # 743 persons
     valid_targets, valid_ids, valid_data, valid_keys = create_sub_set_rand(persons, valid_count)
+#     valid_data = edge_detect(valid_data)
+
+
 
     # remove the persons used for validation set
     for key in valid_keys:
@@ -33,8 +59,14 @@ def load_data(valid_count, train_count, filename):
 
     # get training set
     train_targets, train_ids, train_data, train_keys = create_sub_set_rand(persons, train_count)
+#     train_data = edge_detect(train_data)
     return valid_targets, valid_ids, valid_data, train_targets, train_ids, train_data
-
+"""
+input:
+    file name to load the test image
+output:
+    array of test data (h*w, #samples)
+"""
 def load_data_test(filename):
 #     #['__version__', 'public_test_images', '__header__', '__globals__']
 #     #  test_data.shape = (32, 32, 418)
@@ -42,7 +74,7 @@ def load_data_test(filename):
     #print labels
     images = mat['public_test_images'].T #(32, 32, 2925)
     ids =  np.arange(images.shape[0])
-    ids = ids.reshape((ids.shape[0],1))
+    ids = ids.reshape((ids.shape[0], 1))
     labels = np.zeros(ids.shape)#(2925, 1) examples
 
 #     print images[0]
@@ -57,7 +89,7 @@ def load_data_test(filename):
     # split into training set and validation set
     # 743 persons
     _, _, test_data, _ = create_sub_set(persons, labels.shape[0])
-
+#     test_data = edge_detect(test_data)
     return test_data
 
 
@@ -93,7 +125,11 @@ def preprocess_image(image_data):
 #     print "Warning: There are no differences among input images."
 
 """
-
+input:
+    labels, ids: (#samples, 1) array of labeles and ids
+    data: (h, w, samples) array of data
+output:
+    percentage error
 """
 def create_persons(labels, images, ids):
     persons = {};
@@ -246,7 +282,7 @@ def ShowMeans(means):
         plt.subplot(1, means.shape[1], i+1)
         plt.imshow(means[:, i].reshape(32, 32).T, cmap=plt.cm.gray)
     plt.draw()
-    raw_input('Press Enter.')
+    plt.show()
 
 """
 Reshape the image as array
@@ -280,7 +316,14 @@ def save_csv(result, filename="submission.csv"):
         while (i < 1253):
             i+=1
             writer.writerow({"Id":i, "Prediction":0})
-
+# """
+# input:
+#     predictions: (1, #samples) array of predictions
+#     targets: (1, #samples) array of targets
+# output:
+#     percentage error
+# """
+# def split_set_in_half(data, targets, ids):
 
 
 #code to visualize the image
@@ -290,3 +333,30 @@ def save_csv(result, filename="submission.csv"):
 #     imgplot=plt.imshow(images[0].T)
 #     plt.show()
 #     raw_input("Enter")
+
+def feature_extraction():
+    filename = "public_test_images"
+    mat = sio.loadmat(filename)
+    #print labels
+    images = mat['public_test_images'].T #(32, 32, 2925)
+    ids =  np.arange(images.shape[0])
+    ids = ids.reshape((ids.shape[0], 1))
+    labels = np.zeros(ids.shape)#(2925, 1) examples
+
+    print "images shape: %s" % str(images.shape)
+    image = images[1].reshape(1024, 1)
+
+#     ShowMeans(image)
+    ShowMeans(preprocessing.scale(np.float32(image)))
+
+#     print images[1].shape
+    sx = ndimage.sobel(images[1], axis=0, mode='constant')
+    sy = ndimage.sobel(images[1], axis=1, mode='constant')
+    sob = np.hypot(sx, sy)
+
+    image = sob
+    image = preprocessing.scale(np.float32(image))
+    ShowMeans(image.reshape(1024,1))
+
+if __name__ == '__main__':
+    feature_extraction()
