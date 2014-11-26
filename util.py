@@ -272,7 +272,20 @@ def create_sub_set_rand(persons, count):
     data = data.reshape(n, (h*w)).T
     data = preprocessing.scale(np.float32(data))
     return targets.reshape(1, targets.shape[0]), ids.reshape(1, ids.shape[0]), data, keys
-
+    
+def preprocess_image(data):
+    """
+    A function preprocess image with repect to different algorithms.
+    input:
+            data: n x h x w
+    output: 
+            data: (h * w) x n
+    """
+    n, h, w = data.shape
+    data = data.reshape(n, (h*w)).T
+    data = preprocessing.scale(np.float32(data))
+    data = high_pass(data, n)
+    return data
 
 def ShowMeans(means):
     """Show the cluster centers as images."""
@@ -358,5 +371,49 @@ def feature_extraction():
     image = preprocessing.scale(np.float32(image))
     ShowMeans(image.reshape(1024,1))
 
+def show_image(images, n_image, k):
+    """
+    resize and show images from vector.
+    input: 
+            images: n x (h * w)
+                    h * w = 1024
+            n_image: number of faces you want to show
+            k: the number of the figure.
+    """
+    plt.figure(k)
+    for i in range(n_image):
+        plt.subplot(1, n_image, i+1)
+        plt.imshow(images[i,:].reshape([32, 32]).T, cmap='gray', interpolation='nearest')
+    plt.draw()
+
+def high_pass(images, n_image):
+    """
+    process image so that high contrast gets passed.
+    input: 
+            images: (h * w) x n
+                    h * w = 1024
+            n_image: number of faces you want to process.
+    """
+    for i in range(n_image):
+        lowpass = ndimage.gaussian_filter(images[:,i].reshape([32, 32]), 2)
+        gauss_highpass = images[:,i] - lowpass.reshape([1024,])
+        images[:,i] = gauss_highpass
+    return images
+
 if __name__ == '__main__':
+    n_image = 5
+    # original faces.
+    images = load_data_test("public_test_images").T
+    show_image(images, n_image, 2)
+    
+    # ZCA image processing.
+    # images = ZCA(images)
+    # show_image(images, n_image, 3)
+    
+    # high pass processing.
+    high_pass(images.T, n_image)
+    show_image(images, n_image, 2)
+    
+    plt.show()
+
     feature_extraction()
