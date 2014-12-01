@@ -4,29 +4,13 @@ import matplotlib.pyplot as plt
 from sklearn import preprocessing
 import csv
 from scipy import ndimage
+import preprocessing as prep
+
+
 
 """
-input:
-    data: (h * w, #samples)
-output:
-    data: (h * w, #samples)
+
 """
-def edge_detect(data):
-    # pre-process valid_data
-    data = data.T
-
-    for i in xrange(data.shape[0]):
-        image = data[i]
-        image = image.reshape(32,32)
-        sx = ndimage.sobel(image, axis=0, mode='constant')
-        sy = ndimage.sobel(image, axis=1, mode='constant')
-        sob = np.hypot(sx, sy)
-#         ShowMeans(sob.reshape(1024,1))
-        data[i] = sob.reshape(data[i].shape)
-
-    data = preprocessing.scale(data)
-    return data.T
-
 def load_data(valid_count, train_count, filename):
 
 
@@ -47,7 +31,7 @@ def load_data(valid_count, train_count, filename):
 
     # split into training set and validation set
     # 743 persons
-    valid_targets, valid_ids, valid_data, valid_keys = create_sub_set_rand(persons, valid_count)
+    valid_targets, valid_ids, valid_data, valid_keys = create_sub_set(persons, valid_count)
 #     valid_data = edge_detect(valid_data)
 
 
@@ -58,9 +42,11 @@ def load_data(valid_count, train_count, filename):
 #     print valid_targets.shape, valid_ids.shape, valid_data.shape
 
     # get training set
-    train_targets, train_ids, train_data, train_keys = create_sub_set_rand(persons, train_count)
+    train_targets, train_ids, train_data, train_keys = create_sub_set(persons, train_count)
 #     train_data = edge_detect(train_data)
-    return valid_targets, valid_ids, valid_data, train_targets, train_ids, train_data
+    return valid_targets, valid_ids, valid_data.T, \
+           train_targets.T.reshape(train_targets.shape[1]), train_ids, train_data.T
+
 """
 input:
     file name to load the test image
@@ -92,37 +78,6 @@ def load_data_test(filename):
 #     test_data = edge_detect(test_data)
     return test_data
 
-
-def load_test(filename):
-    mat = sio.loadmat(filename)
-    test_image = mat['public_test_images']
-    return preprocess_image(test_image)
-
-
-def preprocess_image(image_data):
-  """
-  Reshape and Normalize the image vector so that it is easier for computation.
-
-  Input:
-        image_data: h, w, M
-
-  Output:
-        image_data: h*w, M
-  """
-  # Reshape data vector to M x (hxw).
-  h, w, M = image_data.shape
-  image_data = image_data.reshape(h*w, M)
-  return preprocessing.scale(np.float32(image_data))
-
-#   # Start to normalize_image
-#   image_data = image_data - np.mean(image_data)
-#
-#   tr_std = np.std(image_data)
-#   if tr_std != 0:
-#     image_data = image_data / tr_std
-#     return image_data
-#   else:
-#     print "Warning: There are no differences among input images."
 
 """
 input:
@@ -257,54 +212,48 @@ def create_sub_set_rand(persons, count):
         ids = np.delete(ids, -1)
         data = np.delete(data, -1, axis=0)
         counter += 1
-
     data = preprocess_image(data)
     return targets.reshape(1, targets.shape[0]), ids.reshape(1, ids.shape[0]), data, keys
-    
-def preprocess_image(data):
-    """
-    A function preprocess image with repect to different algorithms.
-    input:
-            data: n x h x w
-    output: 
-            data: (h * w) x n
-    """
-    n, h, w = data.shape
-    data = data.reshape(n, (h*w)).T
-    data = preprocessing.scale(np.float32(data))
-    data = high_pass(data, n)
-    return data
 
-def ShowMeans(means):
-    """Show the cluster centers as images."""
-    plt.figure(1)
-    plt.clf()
-    for i in xrange(means.shape[1]):
-        plt.subplot(1, means.shape[1], i+1)
-        plt.imshow(means[:, i].reshape(32, 32).T, cmap=plt.cm.gray)
-    plt.draw()
-    plt.show()
 
 """
-Reshape the image as array
-* image_array.shape = (number of images, h, w)
-* return.shape = (hxw, number of images)
+Calculate the difference between the two model errors.(Common error rate)
+input:
+    model1: predictions from prediction method 1, 1 x n array
+    model2: predictions from prediction method 2, 1 x n array
 """
-def image_reshape(image_array):
-    return image_array.reshape(image_array.shape[0], image_array.shape[1] * image_array.shape[2]).T
+def compare_classification_err(model1, model2, predictions):
+    err_1 = model1 - predictions
+    err_2 = model2 - predictions
+    total_err = 0.
+    common_err = 0.
+    tot_err_1 = 0.
+
+    for i in xrange(predictions.shape[1]):
+        if err_1[0][i] != 0 or err_2[0][i] != 0:
+            total_err += 1
+            if err_1[0][i] != 0:
+                tot_err_1 += 1
+            if err_1[0][i] != 0 and err_2[0][i] != 0:
+                common_err +=1
+    print "Total error count of both model is %.f \n" \
+          "Common error rate: %.5f\n" \
+          "Percentage of model 1 error: %.2f\n"%(total_err, common_err/total_err, tot_err_1/(common_err + total_err))
 
 """
 input:
-    predictions: (1, #samples) array of predictions
+    predictions: (#samples, ) array of predictions
     targets: (1, #samples) array of targets
 output:
     percentage error
 """
 def percent_error(predictions, targets):
     error_count = np.count_nonzero(predictions - targets)
-    return float(error_count)/predictions.shape[1]
+    return float(error_count)/predictions.shape[0]
 
-
+"""
+Save the test prediction result into csv
+"""
 def save_csv(result, filename="submission.csv"):
     """save all the results into a csv file."""
     with open(filename, 'wb') as csvfile:
@@ -317,81 +266,53 @@ def save_csv(result, filename="submission.csv"):
         while (i < 1253):
             i+=1
             writer.writerow({"Id":i, "Prediction":0})
-# """
-# input:
-#     predictions: (1, #samples) array of predictions
-#     targets: (1, #samples) array of targets
-# output:
-#     percentage error
-# """
-# def split_set_in_half(data, targets, ids):
 
+"""
+resize and show images from vector.
+input:
+        images: n x (h * w)
+                h * w = 1024
+        n_image: number of faces you want to show
+        k: the number of the figure.
+"""
+def show_image(images, n_image, k=1):
 
-#code to visualize the image
-# def ShowImage():
-
-#     print images[0].shape
-#     imgplot=plt.imshow(images[0].T)
-#     plt.show()
-#     raw_input("Enter")
-
-def feature_extraction():
-    filename = "public_test_images"
-    mat = sio.loadmat(filename)
-    #print labels
-    images = mat['public_test_images'].T #(32, 32, 2925)
-    ids =  np.arange(images.shape[0])
-    ids = ids.reshape((ids.shape[0], 1))
-    labels = np.zeros(ids.shape)#(2925, 1) examples
-
-    print "images shape: %s" % str(images.shape)
-    image = images[1].reshape(1024, 1)
-
-#     ShowMeans(image)
-    ShowMeans(preprocessing.scale(np.float32(image)))
-
-#     print images[1].shape
-    sx = ndimage.sobel(images[1], axis=0, mode='constant')
-    sy = ndimage.sobel(images[1], axis=1, mode='constant')
-    sob = np.hypot(sx, sy)
-
-    image = sob
-    image = preprocessing.scale(np.float32(image))
-    ShowMeans(image.reshape(1024,1))
-
-def show_image(images, n_image, k):
-    """
-    resize and show images from vector.
-    input: 
-            images: n x (h * w)
-                    h * w = 1024
-            n_image: number of faces you want to show
-            k: the number of the figure.
-    """
+    print images.shape
     plt.figure(k)
     for i in range(n_image):
         plt.subplot(1, n_image, i+1)
         plt.imshow(images[i,:].reshape([32, 32]).T, cmap='gray', interpolation='nearest')
     plt.draw()
+    plt.show()
 
-def high_pass(images, n_image):
-    """
-    process image so that high contrast gets passed.
-    input: 
-            images: (h * w) x n
-                    h * w = 1024
-            n_image: number of faces you want to process.
-    """
-    for i in range(n_image):
-        lowpass = ndimage.gaussian_filter(images[:,i].reshape([32, 32]), 2)
-        gauss_highpass = images[:,i] - lowpass.reshape([1024,])
-        images[:,i] = gauss_highpass
-    return images
+"""
+Reshape and Normalize the image vector so that it is easier for computation.
+
+Input:
+    image_data: M, h, w
+
+Output:
+    image_data: h*w, M
+"""
+def preprocess_image(image_data):
+
+    # Reshape data vector to M x (hxw).
+    M, h, w  = image_data.shape
+    image_data = image_data.reshape(M, h*w).T
+    #
+    # Preprocess the image
+    image_data = preprocessing.scale(np.float32(image_data))
+    # return prep.high_pass(image_data, M)
+    return image_data
+
+def localize_image(data, scale):
+    pass
 
 if __name__ == '__main__':
     n_image = 5
     # original faces.
     images = load_data_test("public_test_images").T
+    print images.shape
     show_image(images, n_image, 2)
     
     # ZCA image processing.
@@ -399,9 +320,5 @@ if __name__ == '__main__':
     # show_image(images, n_image, 3)
     
     # high pass processing.
-    high_pass(images.T, n_image)
-    show_image(images, n_image, 2)
-    
-    plt.show()
-
-    feature_extraction()
+    prep.high_pass(images.T, n_image)
+    show_image(images, n_image, 3)

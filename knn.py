@@ -1,6 +1,7 @@
 import numpy as np
 from util import *
 
+
 def run_knn(K, train_data, train_labels, test_data):
   """Uses the supplied training inputs and labels to make
   predictions for test data using the K-nearest neighbours
@@ -122,15 +123,17 @@ def main():
   valid_size = 96
   train_size = 2830
   te_labels, valid_ids, te_image, \
-  tr_labels, train_ids, tr_image = load_data(valid_size, train_size)
-  tr_image, te_image = shape_image(tr_image, te_image)
-  tr_image, te_image = normalize_image(tr_image, te_image)
+  tr_labels, train_ids, tr_image = load_data(valid_size, train_size, 'labeled_images.mat')
+
+
+  # tr_image, te_image = shape_image(tr_image, te_image)
+  # tr_image, te_image = normalize_image(tr_image, te_image)
 
   # Change this line to cange KNN.
   KNN = [25,27,30,33,35]
   for K in KNN:
-    predictions = run_knn(K, tr_image, tr_labels, te_image)
-    print validate_image(te_labels, predictions)
+    predictions = run_knn(K, tr_image.T, tr_labels, te_image.T)
+    print  1 - percent_error(predictions, te_labels)
 
 if __name__ == '__main__':
   main()
