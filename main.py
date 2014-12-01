@@ -445,9 +445,6 @@ def main_bags_of_svm():
         print("SVM: %.5f" % (hit_rate_svm))
         weights[i] = (hit_rate_svm)
 
-
-
-
     print "Average validation score: %.5f" % (np.sum(weights)/weights.shape[0])
 
     # Now used the trained SVM's to vote on a new validation set
@@ -472,7 +469,10 @@ def main_bags_of_svm():
 
     ###############################################################################
     print( "try test set")
-    test_images = load_data_test("public_test_images").T
+    test_images1 = load_data_test("public_test_images").T
+    test_images2 = load_data_test("hidden_test_images").T
+    print test_images1.shape
+    test_images = np.vstack((test_images1, test_images2))
     print test_images.shape
 
     # max probability
@@ -492,8 +492,89 @@ def main_bags_of_svm():
     save_csv(test_predictions)
     print "Done writing CSV file!"
 
+def main_split_training():
+    valid_count = 100
+    num_set = 2
+    filename = 'labeled_images.mat'
+    valid_targets, valid_data, train_targets_set, train_data_set = \
+                    load_data_split(valid_count, num_set, filename)
+
+    valid_data = valid_data.T
+    valid_targets = valid_targets.T.reshape(valid_targets.shape[1])
+    # train a few svms
+    num_svm = num_set
+    SVMs = [svm.SVC(probability=True)] * num_svm
+    PCAs = [RandomizedPCA(n_components=80, whiten=True)] * num_svm
+    weights = np.ones(num_svm)
+
+    for i in xrange(num_svm):
+        train_targets = train_targets_set[i]
+        train_data = train_data_set[i]
+
+        #reshape data and labels
+        train_data = train_data.T
+        train_targets = train_targets.T.reshape(train_targets.shape[1])
+
+        PCAs[i].fit(train_data)
+
+        # transform data
+        train_data_pca = PCAs[i].transform(train_data)
+        valid_data_pca = PCAs[i].transform(valid_data)
+        # reshape targets for fitting
+
+        # can also get probability score
+        SVMs[i].fit(train_data_pca, train_targets)
+        valid_predictions = SVMs[i].predict(valid_data_pca)
+        valid_prob_svm = SVMs[i].predict_proba(valid_data_pca)
+
+        valid_predictions = valid_predictions.reshape(1, valid_predictions.shape[0])
+        hit_rate_svm = 1 - percent_error(valid_predictions, valid_targets)
+        print("SVM: %.5f" % (hit_rate_svm))
+        weights[i] = (hit_rate_svm)
+
+    print "Average validation score: %.5f" % (np.sum(weights)/weights.shape[0])
+
+    # Now used the trained SVM's to vote on a new validation set
+
+    ###############################################################################
+    # max probability
+    collection_of_prob = []
+    for i in xrange(num_svm):
+        # transform data
+        valid_data_pca = PCAs[i].transform(valid_data)
+
+        # run probabilistic prediction
+        valid_prob_svm = SVMs[i].predict_proba(valid_data_pca)
+        print valid_prob_svm.shape
+        collection_of_prob.append(valid_prob_svm * weights[i])
+
+    predictions = max_proba_predictions(collection_of_prob)
+    print (1 - percent_error(predictions.reshape(1, predictions.shape[0]), valid_targets))
+
+    ###############################################################################
+    print( "try test set")
+    test_images1 = load_data_test("public_test_images").T
+    test_images2 = load_data_test("hidden_test_images").T
+    print test_images1.shape
+
+    # max probability
+    collection_of_prob = []
+    for i in xrange(num_svm):
+        # transform data
+        test_data_pca = PCAs[i].transform(test_images1)
+
+        # run probabilistic prediction
+        test_prob_svm = SVMs[i].predict_proba(test_data_pca)
+        print test_prob_svm.shape
+        collection_of_prob.append(test_prob_svm * weights[i])
+
+    test_predictions = max_proba_predictions(collection_of_prob)
+
+    test_predictions = test_predictions.reshape(1, test_predictions.shape[0])
+    save_csv(test_predictions)
+    print "Done writing CSV file!"
 
 if __name__ == '__main__':
-     main_single_classifier()
-    # main_max_logprob()
-    # main_bags_of_svm()
+#      main_single_classifier()
+#     main_max_logprob()
+    main_bags_of_svm()

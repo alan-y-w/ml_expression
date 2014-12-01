@@ -48,6 +48,50 @@ def load_data(valid_count, train_count, filename):
            train_targets.T.reshape(train_targets.shape[1]), train_ids, train_data.T
 
 """
+Split the train set into subsets
+input:
+    file name to load the test image
+output:
+    array of test data (h*w, #samples)
+"""
+def load_data_split(valid_count, num_set, filename):
+    mat = sio.loadmat(filename)
+    labels = mat['tr_labels'] #(2925, 1) examples
+    #print labels
+    images = mat['tr_images'].T #(32, 32, 2925)
+    ids = mat['tr_identity'] #(2925, 1)
+
+    persons = create_persons(labels, images, ids)
+
+    # split into training set and validation set
+    valid_targets, valid_ids, valid_data, valid_keys = create_sub_set_rand(persons, valid_count)
+
+    # remove the persons used for validation set
+    for key in valid_keys:
+        del persons[key]
+
+    # get training set
+    num_samples = labels.shape[0] - valid_targets.shape[1]
+    train_targets_set = []
+    train_data_set = []
+    set_size_in_sample = num_samples/num_set
+    print set_size_in_sample
+    for i in xrange(num_set):
+        train_targets, train_ids, train_data, train_keys = \
+            create_sub_set_rand(persons, set_size_in_sample)
+#         train_data = edge_detect(train_data)
+#         valid_data = edge_detect(valid_data)
+        train_targets_set.append(train_targets)
+        print train_targets.shape
+        train_data_set.append(train_data)
+
+        # remove keys in use
+        for key in train_keys:
+            del persons[key]
+
+    return valid_targets, valid_data, train_targets_set, train_data_set
+
+"""
 input:
     file name to load the test image
 output:
@@ -58,7 +102,7 @@ def load_data_test(filename):
 #     #  test_data.shape = (32, 32, 418)
     mat = sio.loadmat(filename)
     #print labels
-    images = mat['public_test_images'].T #(32, 32, 2925)
+    images = mat[filename].T #(32, 32, 2925)
     ids =  np.arange(images.shape[0])
     ids = ids.reshape((ids.shape[0], 1))
     labels = np.zeros(ids.shape)#(2925, 1) examples
@@ -262,10 +306,10 @@ def save_csv(result, filename="submission.csv"):
         for i in xrange(result.shape[1]):
             writer.writerow({"Id":i+1, "Prediction":int(result[0][i])})
 
-        i+=1
-        while (i < 1253):
-            i+=1
-            writer.writerow({"Id":i, "Prediction":0})
+#         i+=1
+#         while (i < 1253):
+#             i+=1
+#             writer.writerow({"Id":i, "Prediction":0})
 
 """
 resize and show images from vector.
@@ -302,7 +346,7 @@ def preprocess_image(image_data):
     #
     # Preprocess the image
     image_data = preprocessing.scale(np.float32(image_data))
-    # return prep.high_pass(image_data, M)
+    return prep.high_pass(image_data, M)
     return image_data
 
 def localize_image(data, scale):
@@ -314,11 +358,11 @@ if __name__ == '__main__':
     images = load_data_test("public_test_images").T
     print images.shape
     show_image(images, n_image, 2)
-    
+
     # ZCA image processing.
     # images = ZCA(images)
     # show_image(images, n_image, 3)
-    
+
     # high pass processing.
     prep.high_pass(images.T, n_image)
     show_image(images, n_image, 3)
